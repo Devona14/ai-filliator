@@ -806,15 +806,15 @@ function renderAF(){
   $('#mystats').innerHTML=[[fmt(g.re),'Disapa'],[fmt(g.cl),'Closing'],[rank>=0?'#'+(rank+1):'–','Peringkat']].map(([v,l])=>`<div class="mini"><b>${v}</b><span>${l}</span></div>`).join('');
   $('#listtitle').textContent=tot?`Nasabah untuk disapa, kiriman ${dlabel(d)}`:'Nasabah untuk disapa';
   if(!tot){$('#mylist').innerHTML=`<div class="card small muted">Belum ada kiriman untuk Anda. Pipeline dikirim BMS lewat Teams setiap pagi. Untuk demo, kirim dari menu Ruang kendali di tampilan Product Owner.</div>`;return}
-  $('#mylist').innerHTML=items.map(r=>{const i=X.byHash.get(r.h);if(i==null)return '';const k=S.recs.indexOf(r);const dr=DRAFT[k]||(DRAFT[k]={s:r.s==='baru'?null:r.s,ch:r.ch||'wa',amt:r.amt||'',rs:r.rs||REASONS[0],fu:r.fu?diso(r.fu):''});
+  $('#mylist').innerHTML=items.map(r=>{const i=X.byHash.get(r.h);if(i==null)return '';const k=S.recs.indexOf(r);const dr=DRAFT[k]||(DRAFT[k]={s:r.s==='baru'?null:r.s,ch:r.ch||'wa',unit:r.gr?'gr':'rp',amt:r.gr?String(r.gr).replace('.',','):(r.amt||''),rs:r.rs||REASONS[0],fu:r.fu?diso(r.fu):''});
     const need=['tertarik','menolak','closing'].includes(dr.s);
-    return `<div class="nas" data-k="${k}"><div class="row1"><span class="nm">${esc(DS.rows[i][1])}</span><span><span class="pill s${X.seg[i]}">Segmen ${X.seg[i]}</span> <span class="pill st-${r.s}">${ST[r.s]}${r.s==='closing'?' '+rp(r.amt):''}</span></span></div>
+    return `<div class="nas" data-k="${k}"><div class="row1"><span class="nm">${esc(DS.rows[i][1])}</span><span><span class="pill s${X.seg[i]}">Segmen ${X.seg[i]}</span> <span class="pill st-${r.s}">${ST[r.s]}${r.s==='closing'?' '+rp(r.amt)+(r.gr?' ('+String(r.gr).replace('.',',')+' gr)':''):''}</span></span></div>
     <div class="meta">Rek. ••••${DS.rows[i][2]}, ${infoLine(i)}, skor ${X.score[i]}${r.v?', <span class="ok">closing terverifikasi</span>':''}</div>
     <div class="script">${esc(skrip(i,prog()))}</div>
     ${SAMPLE?`<button class="btn sm" data-ai="${k}">Buatkan pesan WhatsApp dengan AI</button><div data-wa="${k}"></div>`:''}
     ${r.s!=='baru'&&!EDIT.has(k)?`<div class="row" style="margin-top:8px"><button class="btn sm" data-edit="${k}">Ubah status</button>${r.s==='tertarik'&&r.fu?`<span class="small muted">Hubungi lagi ${dfull(r.fu)}</span>`:''}${r.rs?`<span class="small muted">Alasan: ${esc(r.rs)}</span>`:''}</div>`:`<div class="chips" role="group" aria-label="Status">${Object.keys(ST).filter(s=>s!=='baru').map(s=>`<button class="chip" data-s="${s}" aria-pressed="${dr.s===s}">${ST[s]}</button>`).join('')}</div>
     <div class="extra">${need?`<div class="field"><label>Lewat</label><select data-f="ch">${Object.keys(CH).map(c=>`<option value="${c}" ${dr.ch===c?'selected':''}>${CH[c]}</option>`).join('')}</select></div>`:''}
-    ${dr.s==='closing'?`<div class="field"><label>Nominal top up (Rp)</label><input type="text" inputmode="numeric" data-f="amt" value="${dr.amt}" placeholder="contoh 250000"></div>`:''}
+    ${dr.s==='closing'?`<div class="field"><label>Nominal top up</label><div class="row" style="gap:8px;flex-wrap:nowrap"><select data-f="unit" style="width:auto"><option value="rp" ${dr.unit==='rp'?'selected':''}>Rupiah</option><option value="gr" ${dr.unit==='gr'?'selected':''}>Gram</option></select><input type="text" inputmode="decimal" data-f="amt" value="${dr.amt}" placeholder="${dr.unit==='gr'?'contoh 0,5':'contoh 250000'}"></div></div>`:''}
     ${dr.s==='menolak'?`<div class="field"><label>Alasan</label><select data-f="rs">${REASONS.map(x=>`<option ${dr.rs===x?'selected':''}>${x}</option>`).join('')}</select></div>`:''}
     ${dr.s==='tertarik'?`<div class="field"><label>Hubungi lagi tanggal</label><input type="date" data-f="fu" value="${dr.fu}" style="font:inherit;border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;background:var(--field);color:var(--ink);width:100%"></div>`:''}
     ${dr.s?`<div class="row"><button class="btn primary sm" data-save="${k}">Simpan update</button><span class="small err" data-err="${k}"></span></div>`:''}</div>`}</div>`}).join('');
@@ -822,7 +822,7 @@ function renderAF(){
     el.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{dr.s=c.dataset.s;if(['wa','telp','kunjung'].includes(dr.s))dr.ch=dr.s;renderAF()});
     el.querySelectorAll('[data-f]').forEach(f=>f.oninput=f.onchange=()=>{dr[f.dataset.f]=f.value;const e=el.querySelector('[data-err]');if(e)e.textContent=''});
     const sb=el.querySelector('[data-save]');if(sb)sb.onclick=()=>{const r=S.recs[k];
-      if(dr.s==='closing'){const v=parseInt(String(dr.amt).replace(/\D/g,''),10);if(!v||v<10000){el.querySelector('[data-err]').textContent='Isi nominal minimal Rp10.000';return}r.amt=v;r.v=DS.trx&&!r.sim?!!(DS.trx.last[r.h]&&DS.trx.last[r.h][0]>=r.d):false}
+      if(dr.s==='closing'){let v;if(dr.unit==='gr'){const g=parseFloat(String(dr.amt).replace(',','.'));if(!g||g<0.01){el.querySelector('[data-err]').textContent='Isi gram minimal 0,01';return}r.gr=g;v=Math.round(g*DS.price)}else{v=parseInt(String(dr.amt).replace(/\D/g,''),10);if(!v||v<10000){el.querySelector('[data-err]').textContent='Isi nominal minimal Rp10.000';return}r.gr=0}r.amt=v;r.v=DS.trx&&!r.sim?!!(DS.trx.last[r.h]&&DS.trx.last[r.h][0]>=r.d):false}
       if(dr.s==='tertarik'){const d=toDay(dr.fu);if(d==null){el.querySelector('[data-err]').textContent='Pilih tanggal untuk menghubungi lagi';return}r.fu=d}
       EDIT.delete(k);r.s=dr.s;r.ch=['wa','telp','kunjung'].includes(dr.s)?dr.s:(REACHED(dr.s)?dr.ch:null);r.rs=dr.s==='menolak'?dr.rs:null;delete DRAFT[k];save();toast('Update tersimpan dan terlihat di dashboard BMS');renderAF()};
     const eb=el.querySelector('[data-edit]');if(eb)eb.onclick=()=>{EDIT.add(k);renderAF()};
@@ -869,7 +869,7 @@ wireDrop($('#drop-fb'),$('#f-fb'),async files=>{if(!files.length)return;const st
   const key=new Map();DS.rows.forEach(r=>{const k=DS.aff[r[0]][0]+'|'+r[2];if(!key.has(k))key.set(k,r[6])});
   let tot=0,upd=0,due=0,fut=0,miss=0,bad=0;
   try{for(const f of files){const rows=await readTable(f,['id','status','id_mitra']);const h=rows[0].map(x=>String(x).trim().toLowerCase());const c=n=>h.indexOf(n.toLowerCase());
-      const I={id:c('ID'),d:c('Tanggal_Kirim'),m:c('ID_Mitra'),r4:c('Rek_4Digit'),st:c('Status'),k:c('Kanal'),amt:c('Nominal_Rp'),rs:c('Alasan'),fu:c('Tgl_Followup'),rek:c('No_Rekening'),kode:c('Kode_Nasabah')};
+      const I={id:c('ID'),d:c('Tanggal_Kirim'),m:c('ID_Mitra'),r4:c('Rek_4Digit'),st:c('Status'),k:c('Kanal'),amt:c('Nominal_Rp'),rs:c('Alasan'),fu:c('Tgl_Followup'),rek:c('No_Rekening'),kode:c('Kode_Nasabah'),gr:c('Gram')};
       if(I.id<0||I.st<0||I.m<0||I.d<0){st.innerHTML=`<span class="err">${esc(f.name)} tidak berisi kolom ID, Tanggal_Kirim, ID_Mitra, dan Status. Pastikan yang diunggah file pipeline dari flow Teams.</span>`;return}
       for(let j=1;j<rows.length;j++){const r=rows[j];if(!r||!String(r[I.id]??'').trim())continue;tot++;
         const s=statusFromLabel(r[I.st]);if(!s){bad++;continue}const d=toDay(r[I.d]);if(d==null){bad++;continue}
@@ -877,7 +877,7 @@ wireDrop($('#drop-fb'),$('#f-fb'),async files=>{if(!files.length)return;const st
         const m=String(r[I.m]).trim();let hh=I.kode>=0?String(r[I.kode]??'').trim():'';if(!hh&&I.rek>=0)hh=hashAcct(r[I.rek]);if(!hh&&I.r4>=0)hh=key.get(m+'|'+String(r[I.r4]??'').trim().padStart(4,'0'))||'';
         if(!hh||!X.byHash.has(hh)){miss++;continue}
         const id=String(r[I.id]).trim();const ch=['wa','telp','kunjung'].includes(s)?s:(REACHED(s)?(kanalOf(I.k>=0?r[I.k]:'')||'wa'):null);
-        const rec={id,h:hh,m,d,s,ch,amt:s==='closing'?(+String(I.amt>=0?r[I.amt]:0).replace(/[^\d.]/g,'')||0):0,v:false,rs:s==='menolak'?(String(I.rs>=0?r[I.rs]??'':'').trim()||'Tanpa alasan'):null,fu:I.fu>=0?toDay(r[I.fu]):null,src:'teams'};
+        const rec={id,h:hh,m,d,s,ch,amt:s==='closing'?(()=>{const a=+String(I.amt>=0?(r[I.amt]??''):'').replace(/[^\d.]/g,'')||0;if(a)return a;const g=+String(I.gr>=0?(r[I.gr]??''):'').replace(',','.').replace(/[^\d.]/g,'')||0;return Math.round(g*DS.price)})():0,gr:s==='closing'?(+String(I.gr>=0?(r[I.gr]??''):'').replace(',','.').replace(/[^\d.]/g,'')||0):0,v:false,rs:s==='menolak'?(String(I.rs>=0?r[I.rs]??'':'').trim()||'Tanpa alasan'):null,fu:I.fu>=0?toDay(r[I.fu]):null,src:'teams'};
         const ex=S.recs.findIndex(x=>x.src==='teams'&&x.id===id);if(ex>=0)S.recs[ex]=rec;else S.recs.push(rec);if(s==='baru')due++;else upd++}}
     verify();save();MODE='teams';LS.set('bte-mode-demo',MODE);
     st.innerHTML=`<span class="ok">${fmt(tot)} baris dibaca: ${fmt(upd)} sudah diupdate affiliator, ${fmt(due)} belum dihubungi.</span>${fut?` ${fmt(fut)} baris dengan tanggal kirim mendatang dilewati.`:''}${miss?` <span class="warn">${fmt(miss)} baris tidak cocok dengan data eligible saat ini.</span>`:''}${bad?` <span class="warn">${fmt(bad)} baris status atau tanggalnya tidak terbaca.</span>`:''}`;
@@ -911,7 +911,7 @@ function renderPlan(){if(!$('#pl-sum')||!X.byAff)return;const p=planBuild();cons
   $('#pl-go').disabled=!p.rows.length;$('#pl-reset').textContent=`Kosongkan daftar terpakai (${fmt(Object.keys(USED).length)})`;
   $('#pl-st').innerHTML=DL?'':'<span class="warn">Unduhan tidak tersedia di tampilan ini.</span>'}
 $('#pl-reset').onclick=()=>{if(!confirm('Kosongkan daftar nasabah yang sudah pernah masuk rencana? Nasabah tersebut bisa terpilih lagi.'))return;USED={};LS.set('bte-used-v1-demo',USED);renderPlan();toast('Daftar terpakai dikosongkan')};
-const COLS=['ID','Tanggal_Kirim','Email_Affiliator','ID_Mitra','Nama_Affiliator','Nama_Nasabah','Rek_4Digit','Segmen','Keterangan','Skrip','Status','Kanal','Nominal_Rp','Alasan','Tgl_Followup','Catatan','Waktu_Update','No_Rekening','No_HP_Nasabah','Link_WhatsApp','Kode_Nasabah'];
+const COLS=['ID','Tanggal_Kirim','Email_Affiliator','ID_Mitra','Nama_Affiliator','Nama_Nasabah','Rek_4Digit','Segmen','Keterangan','Skrip','Status','Kanal','Nominal_Rp','Alasan','Tgl_Followup','Catatan','Waktu_Update','No_Rekening','No_HP_Nasabah','Link_WhatsApp','Kode_Nasabah','Gram'];
 
 const BULAN=['januari','februari','maret','april','mei','juni','juli','agustus','september','oktober','november','desember'];
 const HARI={1:'Senin',2:'Selasa',3:'Rabu',4:'Kamis',5:'Jumat'};
@@ -923,7 +923,7 @@ function buildPlanFile(p){
   // Pipeline
   const pr=[COLS.map(c=>S_(c,2))];
   p.rows.forEach(o=>{const r=DS.rows[o.i],af=DS.aff[o.a],h=r[6],F=FULL&&FULL.get(h),FA=FULLAFF&&FULLAFF.get(af[0]);const hp=F?F.hp:'';const R=pr.length+1;
-    pr.push([S_(`PL-${diso(o.d).replace(/-/g,'')}-${af[0]}-${o.seq}`),S_(diso(o.d),1),{f:`IFERROR(INDEX(Master_Affiliator!$C:$C,MATCH($D${R},Master_Affiliator!$A:$A,0))&"","")`,v:EMAILS[af[0]]||''},S_(af[0]),S_(FA?FA.nama:af[1]),S_(F?F.nama:r[1]),S_(r[2],1),S_(X.seg[o.i]),S_(ketOf(o.i)),S_(skrip(o.i,prog())),S_('Belum dihubungi'),null,null,null,null,null,null,S_(F?F.rek:'',1),S_(hp,1),S_('https://wa.me/'+hp),S_(h)])});
+    pr.push([S_(`PL-${diso(o.d).replace(/-/g,'')}-${af[0]}-${o.seq}`),S_(diso(o.d),1),{f:`IFERROR(INDEX(Master_Affiliator!$C:$C,MATCH($D${R},Master_Affiliator!$A:$A,0))&"","")`,v:EMAILS[af[0]]||''},S_(af[0]),S_(FA?FA.nama:af[1]),S_(F?F.nama:r[1]),S_(r[2],1),S_(X.seg[o.i]),S_(ketOf(o.i)),S_(skrip(o.i,prog())),S_('Belum dihubungi'),null,null,null,null,null,null,S_(F?F.rek:'',1),S_(hp,1),S_('https://wa.me/'+hp),S_(h),null])});
   // Master
   const mr=[['ID_Mitra','Nama_Affiliator','Email_Affiliator','No_HP_Affiliator'].map(c=>S_(c,2))].concat(DS.aff.map(a=>{const FA=FULLAFF&&FULLAFF.get(a[0]);return[S_(a[0]),S_(FA?FA.nama:a[1]),S_(EMAILS[a[0]]||'',3),S_(FA?FA.hp:'',1)]}));
   // Ringkasan
@@ -946,7 +946,7 @@ function buildPlanFile(p){
   const n=pr.length;
   return{name:`pipeline_${BULAN[mm-1]}_${yy}.xlsx`,buf:xlsxWrite([
     {name:'Petunjuk',rows:ir,cols:[120]},
-    {name:'Pipeline',rows:pr,cols:[26,13,30,12,24,26,10,8,34,60,18,11,12,24,13,22,17,14,16,30,14],freeze:'B2',dv:[{sqref:`K2:K${n}`,list:['Belum dihubungi','Dihubungi via WhatsApp','Sudah ditelepon','Sudah dikunjungi','Tertarik follow up','Menolak','Closing','Nomor tidak aktif/salah','Nasabah tidak dikenal']}],table:{name:'tblPipeline',ref:`A1:U${n}`,cols:COLS}},
+    {name:'Pipeline',rows:pr,cols:[26,13,30,12,24,26,10,8,34,60,18,11,12,24,13,22,17,14,16,30,14,10],freeze:'B2',dv:[{sqref:`K2:K${n}`,list:['Belum dihubungi','Dihubungi via WhatsApp','Sudah ditelepon','Sudah dikunjungi','Tertarik follow up','Menolak','Closing','Nomor tidak aktif/salah','Nasabah tidak dikenal']}],table:{name:'tblPipeline',ref:`A1:V${n}`,cols:COLS}},
     {name:'Master_Affiliator',rows:mr,cols:[14,28,34,18],freeze:'A2',table:{name:'tblAffiliator',ref:`A1:D${mr.length}`,cols:['ID_Mitra','Nama_Affiliator','Email_Affiliator','No_HP_Affiliator']}},
     {name:'Ringkasan',rows:rr,cols:[16,16,16,12,12]}])}
 }
