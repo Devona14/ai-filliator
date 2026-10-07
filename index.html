@@ -867,12 +867,12 @@ const kanalOf=v=>{const s=String(v??'').toLowerCase();return s.includes('whats')
 async function readTable(f,need){if(isCSV(f)){const h=await csvHead(f);const rows=[h.hdr];await streamCSV(f,h.del,r=>rows.push(r));return rows}return xlsxRows(f,hdr=>need.every(n=>hdr.map(x=>x.trim().toLowerCase()).includes(n)))}
 wireDrop($('#drop-fb'),$('#f-fb'),async files=>{if(!files.length)return;const st=$('#st-fb');st.innerHTML='<span class="warn">Membaca file feedback...</span>';
   const key=new Map();DS.rows.forEach(r=>{const k=DS.aff[r[0]][0]+'|'+r[2];if(!key.has(k))key.set(k,r[6])});
-  let tot=0,upd=0,due=0,fut=0,miss=0,bad=0;
+  let tot=0,upd=0,due=0,fut=0,miss=0,bad=0,autoCl=0;
   try{for(const f of files){const rows=await readTable(f,['id','status','id_mitra']);const h=rows[0].map(x=>String(x).trim().toLowerCase());const c=n=>h.indexOf(n.toLowerCase());
       const I={id:c('ID'),d:c('Tanggal_Kirim'),m:c('ID_Mitra'),r4:c('Rek_4Digit'),st:c('Status'),k:c('Kanal'),amt:c('Nominal_Rp'),rs:c('Alasan'),fu:c('Tgl_Followup'),rek:c('No_Rekening'),kode:c('Kode_Nasabah'),gr:c('Gram')};
       if(I.id<0||I.st<0||I.m<0||I.d<0){st.innerHTML=`<span class="err">${esc(f.name)} tidak berisi kolom ID, Tanggal_Kirim, ID_Mitra, dan Status. Pastikan yang diunggah file pipeline dari flow Teams.</span>`;return}
       for(let j=1;j<rows.length;j++){const r=rows[j];if(!r||!String(r[I.id]??'').trim())continue;tot++;
-        const s=statusFromLabel(r[I.st]);if(!s){bad++;continue}const d=toDay(r[I.d]);if(d==null){bad++;continue}
+        let s=statusFromLabel(r[I.st]);if(!s){bad++;continue}{const num=v=>+String(v??'').replace(',','.').replace(/[^\d.]/g,'')||0;const av=I.amt>=0?num(r[I.amt]):0,gv=I.gr>=0?num(r[I.gr]):0;if((av>0||gv>0)&&!['menolak','nomor','tidak_kenal','closing'].includes(s)){s='closing';autoCl++}}const d=toDay(r[I.d]);if(d==null){bad++;continue}
         if(s==='baru'&&d>TODAY){fut++;continue}
         const m=String(r[I.m]).trim();let hh=I.kode>=0?String(r[I.kode]??'').trim():'';if(!hh&&I.rek>=0)hh=hashAcct(r[I.rek]);if(!hh&&I.r4>=0)hh=key.get(m+'|'+String(r[I.r4]??'').trim().padStart(4,'0'))||'';
         if(!hh||!X.byHash.has(hh)){miss++;continue}
@@ -880,7 +880,7 @@ wireDrop($('#drop-fb'),$('#f-fb'),async files=>{if(!files.length)return;const st
         const rec={id,h:hh,m,d,s,ch,amt:s==='closing'?(()=>{const a=+String(I.amt>=0?(r[I.amt]??''):'').replace(/[^\d.]/g,'')||0;if(a)return a;const g=+String(I.gr>=0?(r[I.gr]??''):'').replace(',','.').replace(/[^\d.]/g,'')||0;return Math.round(g*DS.price)})():0,gr:s==='closing'?(+String(I.gr>=0?(r[I.gr]??''):'').replace(',','.').replace(/[^\d.]/g,'')||0):0,v:false,rs:s==='menolak'?(String(I.rs>=0?r[I.rs]??'':'').trim()||'Tanpa alasan'):null,fu:I.fu>=0?toDay(r[I.fu]):null,src:'teams'};
         const ex=S.recs.findIndex(x=>x.src==='teams'&&x.id===id);if(ex>=0)S.recs[ex]=rec;else S.recs.push(rec);if(s==='baru')due++;else upd++}}
     verify();save();MODE='teams';LS.set('bte-mode-demo',MODE);
-    st.innerHTML=`<span class="ok">${fmt(tot)} baris dibaca: ${fmt(upd)} sudah diupdate affiliator, ${fmt(due)} belum dihubungi.</span>${fut?` ${fmt(fut)} baris dengan tanggal kirim mendatang dilewati.`:''}${miss?` <span class="warn">${fmt(miss)} baris tidak cocok dengan data eligible saat ini.</span>`:''}${bad?` <span class="warn">${fmt(bad)} baris status atau tanggalnya tidak terbaca.</span>`:''}`;
+    st.innerHTML=`<span class="ok">${fmt(tot)} baris dibaca: ${fmt(upd)} sudah diupdate affiliator, ${fmt(due)} belum dihubungi.</span>${fut?` ${fmt(fut)} baris dengan tanggal kirim mendatang dilewati.`:''}${miss?` <span class="warn">${fmt(miss)} baris tidak cocok dengan data eligible saat ini.</span>`:''}${bad?` <span class="warn">${fmt(bad)} baris status atau tanggalnya tidak terbaca.</span>`:''}${autoCl?` <span class="warn">${fmt(autoCl)} baris berisi nominal atau gram tapi statusnya bukan Closing, jadi dihitung sebagai Closing.</span>`:''}`;
     toast('Feedback Teams masuk ke Radar dan Peta affiliator');fillSelects();
   }catch(e){st.innerHTML='<span class="err">File tidak bisa dibaca: '+esc(e.message||e)+'</span>'}});
 
