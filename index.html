@@ -321,7 +321,7 @@ footer .yc{position:absolute;left:0;bottom:0;width:90px;height:90px;background:v
     <button class="btn sm" id="fbshort">Unggah file feedback</button><button class="btn sm" id="reset">Ulangi simulasi</button></div></div></div>
   <div class="card hero">
     <div class="big" id="woke">0</div>
-    <div><h2 style="font-size:18px">Nasabah bangun kembali</h2><p class="hint" style="margin:0" id="wokeinfo"></p></div>
+    <div><h2 style="font-size:18px">Nasabah top up setelah disapa</h2><p class="hint" style="margin:0" id="wokeinfo"></p></div>
   </div>
   <div class="card" style="margin-top:16px"><h2>Perjalanan nasabah</h2><p class="hint">Dari di-assign sampai closing yang terbukti di data transaksi. Persentase adalah konversi dari tahap sebelumnya.</p><div class="journey" id="journey"></div><div class="small muted" style="margin-top:10px" id="unreach"></div></div>
   <div class="grid c2e" style="margin-top:16px">
@@ -329,7 +329,7 @@ footer .yc{position:absolute;left:0;bottom:0;width:90px;height:90px;background:v
     <div class="card"><h2>Alasan nasabah menolak</h2><p class="hint">Bahan menyusun program top up berikutnya</p><div class="chart" style="height:220px"><canvas id="ch-reason"></canvas></div></div>
   </div>
   <div class="grid c2e" style="margin-top:16px">
-    <div class="card"><h2>Tambahan emas terverifikasi</h2><p class="hint">Gram kumulatif per hari kirim</p><div class="chart"><canvas id="ch-trend"></canvas></div></div>
+    <div class="card"><h2>Tambahan emas setelah disapa</h2><p class="hint">Gram kumulatif per hari kirim: dilaporkan affiliator dan yang sudah terverifikasi data transaksi</p><div class="chart"><canvas id="ch-trend"></canvas></div></div>
     <div class="card"><h2>Closing per segmen</h2><p class="hint">Tingkat closing dari nasabah yang di-assign</p><div class="chart"><canvas id="ch-segclose"></canvas></div><div class="insight" id="ins-segclose"></div></div>
   </div>
   <div class="card ai hidden" style="margin-top:16px" id="aibox"><div class="card-t"><div><h2>Analisis AI</h2><p class="hint" style="margin:0">Claude membaca angka di halaman ini (tanpa data pribadi nasabah) dan menyarankan langkah minggu depan</p></div><button class="btn primary" id="aibtn">Minta analisis</button></div><div class="out" id="aiout"></div></div>
@@ -735,11 +735,11 @@ const progRecs=()=>recs().filter(r=>!(r.d===TODAY&&r.s==='baru'&&r.src!=='teams'
 function stats(R){const segOf=r=>{const i=X.byHash.get(r.h);return i==null?null:X.seg[i]};
   const asg=R.length,reach=R.filter(r=>REACHED(r.s)).length,intr=R.filter(r=>r.s==='tertarik'||r.s==='closing').length,cl=R.filter(r=>r.s==='closing'),ver=cl.filter(r=>r.v);
   const woke=new Set(R.filter(r=>r.v||r.woke).map(r=>r.h));const silent=R.filter(r=>r.woke&&r.s!=='closing').length;
-  return{asg,reach,intr,cl:cl.length,ver:ver.length,vAmt:ver.reduce((s,r)=>s+r.amt,0),woke:woke.size,silent,unreach:R.filter(r=>r.s==='nomor'||r.s==='tidak_kenal').length,segOf}}
+  return{asg,reach,intr,cl:cl.length,ver:ver.length,vAmt:ver.reduce((s,r)=>s+r.amt,0),cAmt:cl.reduce((s,r)=>s+(r.amt||0),0),cGr:cl.reduce((s,r)=>s+(r.gr||((r.amt||0)/DS.price)),0),woke:woke.size,silent,unreach:R.filter(r=>r.s==='nomor'||r.s==='tidak_kenal').length,segOf}}
 function renderRadar(){
   syncMode();const R=progRecs(),s=stats(R);const gr=x=>x/DS.price;
-  $('#woke').textContent=fmt(s.woke);
-  $('#wokeinfo').innerHTML=`Nasabah tidak aktif yang kembali beli atau top up setelah disapa: ${fmt(s.ver)} closing terverifikasi senilai <b>${rp(s.vAmt)}</b> (±${gr(s.vAmt).toLocaleString('id-ID',{maximumFractionDigits:1})} gram)${s.silent?`, ditambah ${fmt(s.silent)} nasabah yang ternyata top up walau belum dilaporkan affiliator`:''}.`;
+  $('#woke').textContent=fmt(s.cl);
+  $('#wokeinfo').innerHTML=s.cl?`Total top up dilaporkan affiliator <b>${rp(s.cAmt)}</b> (±${s.cGr.toLocaleString('id-ID',{maximumFractionDigits:2})} gram) dari ${fmt(s.reach)} nasabah yang berhasil disapa. ${s.ver?`${fmt(s.ver)} di antaranya sudah terverifikasi di data transaksi (${rp(s.vAmt)}).`:'Belum ada yang terverifikasi: verifikasi berjalan otomatis saat data transaksi setelah tanggal kirim diunggah.'}${s.silent?` Ada juga ${fmt(s.silent)} nasabah yang ternyata top up walau belum dilaporkan affiliator.`:''}`:'Belum ada closing yang dilaporkan affiliator.';
   const J=[['Di-assign',s.asg],['Berhasil disapa',s.reach],['Tertarik',s.intr],['Closing',s.cl],['Terverifikasi',s.ver]];
   $('#journey').innerHTML=J.map(([l,v],k)=>`<div class="jst"><div class="n">${fmt(v)}</div><div class="l">${l}</div><div class="c">${k?pct(J[k-1][1]?v/J[k-1][1]:0)+' dari tahap sebelumnya':'100%'}</div><div class="bar"><span style="width:${s.asg?v/s.asg*100:0}%"></span></div></div>`).join('');
   $('#unreach').textContent=`${fmt(s.unreach)} nasabah tidak bisa dihubungi (nomor tidak aktif atau tidak dikenal). Data kontak ini perlu dimutakhirkan lewat cabang.`;
@@ -747,8 +747,8 @@ function renderRadar(){
   mk('ch-chan',{type:'bar',data:{labels:chs.map((c,k)=>CH[c]+' ('+pct(clr[k])+' closing)'),datasets:[{label:'Disapa',data:cc.map(a=>a.length),backgroundColor:css('--blue'),borderRadius:3},{label:'Closing',data:cc.map(a=>a.filter(r=>r.s==='closing').length),backgroundColor:css('--green'),borderRadius:3}]},options:{...base(),plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10}}}}});
   const rc={};R.filter(r=>r.s==='menolak').forEach(r=>rc[r.rs]=(rc[r.rs]||0)+1);const rk=Object.keys(rc).sort((a,b)=>rc[b]-rc[a]);
   mk('ch-reason',{type:'bar',data:{labels:rk,datasets:[{data:rk.map(k=>rc[k]),backgroundColor:css('--orange'),borderRadius:3}]},options:{...base(),indexAxis:'y',scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}});
-  const days=[...new Set(R.map(r=>r.d))].sort((a,b)=>a-b);let cum=0;const tr=days.map(d=>{cum+=gr(R.filter(r=>r.d===d&&r.v).reduce((x,r)=>x+r.amt,0));return +cum.toFixed(2)});
-  mk('ch-trend',{type:'line',data:{labels:days.map(dlabel),datasets:[{data:tr,borderColor:css('--cyan'),backgroundColor:css('--fill'),fill:true,tension:.3,pointRadius:3,pointBackgroundColor:css('--cyan')}]},options:{...base(),scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>v+' gr'}}}}});
+  const days=[...new Set(R.map(r=>r.d))].sort((a,b)=>a-b);let cum=0,cv=0;const gOf=r=>r.gr||((r.amt||0)/DS.price);const tr=days.map(d=>{cum+=R.filter(r=>r.d===d&&r.s==='closing').reduce((x,r)=>x+gOf(r),0);return +cum.toFixed(3)});const tv=days.map(d=>{cv+=R.filter(r=>r.d===d&&r.v).reduce((x,r)=>x+gOf(r),0);return +cv.toFixed(3)});
+  const few=days.length<3;mk('ch-trend',{type:few?'bar':'line',data:{labels:days.map(dlabel),datasets:[{label:'Dilaporkan affiliator',data:tr,borderColor:css('--cyan'),backgroundColor:few?css('--cyan'):css('--fill'),fill:!few,maxBarThickness:70,borderRadius:3,tension:.3,pointRadius:3,pointBackgroundColor:css('--cyan')},{label:'Terverifikasi transaksi',data:tv,borderColor:css('--green'),backgroundColor:css('--green'),borderDash:few?[]:[5,4],maxBarThickness:70,borderRadius:3,fill:false,tension:.3,pointRadius:3}]},options:{...base(),plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>v+' gr'}}}}});
   const rate=f=>{const a=R.filter(f);return a.length?a.filter(r=>r.s==='closing').length/a.length:0};
   const sg=['A','B','C','D'].map(x=>rate(r=>s.segOf(r)===x));
   mk('ch-segclose',{type:'bar',data:{labels:['A','B','C','D'].map(x=>'Segmen '+x),datasets:[{data:sg.map(x=>+(x*100).toFixed(1)),backgroundColor:[css('--green'),css('--blue'),css('--gold'),css('--seg-d')],borderRadius:3}]},options:{...base(),scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
@@ -768,7 +768,7 @@ $('#aibtn').onclick=async()=>{if(!SAMPLE)return;const R=progRecs(),s=stats(R);co
 /* ---------- PETA ---------- */
 const PERS=[{k:'bintang',n:'Bintang',c:'--green',t:'Jadikan mentor, bagikan cara mereka menyapa ke affiliator lain'},{k:'rajin',n:'Rajin, belum closing',c:'--gold',t:'Coaching skrip dan pilihkan program yang lebih cocok'},{k:'pasif',n:'Potensial tapi pasif',c:'--blue',t:'Kirim pengingat sore dan beri apresiasi saat mulai aktif'},{k:'bina',n:'Perlu dibina',c:'--red',t:'Hubungi langsung, cari tahu kendalanya'}];
 let PF=null;
-function affStats(){const g={};progRecs().forEach(r=>{const x=g[r.m]||(g[r.m]={n:0,re:0,cl:0,v:0});x.n++;if(REACHED(r.s))x.re++;if(r.s==='closing')x.cl++;if(r.v)x.v+=r.amt});return g}
+function affStats(){const g={};progRecs().forEach(r=>{const x=g[r.m]||(g[r.m]={n:0,re:0,cl:0,v:0,c:0});x.n++;if(REACHED(r.s))x.re++;if(r.s==='closing'){x.cl++;x.c+=r.amt||0}if(r.v)x.v+=r.amt});return g}
 const persona=x=>{const f=x.re/x.n,c=x.cl/x.n;return f>=.5?(c>=.1?'bintang':'rajin'):(c>=.1?'pasif':'bina')};
 function renderMap(){
   syncMode();const g=affStats();const pts=Object.entries(g).filter(([m,x])=>x.n>=5&&AFFMAP.has(m)).map(([m,x])=>({m,x,p:persona(x)}));
@@ -777,9 +777,9 @@ function renderMap(){
   const quad={id:'quad',afterDraw(c){const {ctx,chartArea:a,scales:{x,y}}=c;ctx.save();ctx.strokeStyle=css('--line-2');ctx.setLineDash([4,4]);const px=x.getPixelForValue(50),py=y.getPixelForValue(10);ctx.beginPath();ctx.moveTo(px,a.top);ctx.lineTo(px,a.bottom);ctx.moveTo(a.left,py);ctx.lineTo(a.right,py);ctx.stroke();ctx.restore()}};
   const ds=PERS.map(p=>({label:p.n,data:pts.filter(q=>q.p===p.k&&(!PF||PF===p.k)).map(q=>({x:+(q.x.re/q.x.n*100).toFixed(1),y:+(q.x.cl/q.x.n*100).toFixed(1),r:Math.min(14,4+Math.sqrt(q.x.n)),m:q.m})),backgroundColor:css(p.c)+'AA',borderColor:css(p.c)}));
   mk('ch-map',{type:'bubble',data:{datasets:ds},plugins:[quad],options:{responsive:true,maintainAspectRatio:false,onClick:(e,el)=>{if(el.length){const d=ds[el[0].datasetIndex].data[el[0].index];openAF(AFFMAP.get(d.m))}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.m}: disapa ${c.raw.x}%, closing ${c.raw.y}%`}}},scales:{x:{min:0,max:100,title:{display:true,text:'% nasabah berhasil disapa'},ticks:{callback:v=>v+'%'}},y:{min:0,suggestedMax:40,title:{display:true,text:'% closing'},ticks:{callback:v=>v+'%'}}}}});
-  const list=pts.filter(q=>!PF||q.p===PF).sort((a,b)=>b.x.v-a.x.v);const P_=PERS.find(p=>p.k===PF);
+  const list=pts.filter(q=>!PF||q.p===PF).sort((a,b)=>b.x.c-a.x.c);const P_=PERS.find(p=>p.k===PF);
   $('#ptitle').textContent=P_?P_.n:'Semua affiliator terpetakan';$('#ptip').textContent=P_?'Saran: '+P_.t:'Klik salah satu tipe di atas untuk menyaring';
-  $('#ptab').innerHTML=`<thead><tr><th>ID mitra</th><th class="n">Disapa</th><th class="n">Closing</th><th class="n">Terverifikasi</th></tr></thead><tbody>`+(list.length?list.map(q=>`<tr class="click" data-a="${AFFMAP.get(q.m)}"><td>${esc(q.m)} <span class="muted small">${esc(DS.aff[AFFMAP.get(q.m)][1])}</span></td><td class="n">${pct(q.x.re/q.x.n)}</td><td class="n">${q.x.cl}</td><td class="n">${rp(q.x.v)}</td></tr>`).join(''):'<tr><td colspan="4" class="muted">Belum ada affiliator di tipe ini.</td></tr>')+'</tbody>';
+  $('#ptab').innerHTML=`<thead><tr><th>ID mitra</th><th class="n">Disapa</th><th class="n">Closing</th><th class="n">Top up dilaporkan</th></tr></thead><tbody>`+(list.length?list.map(q=>`<tr class="click" data-a="${AFFMAP.get(q.m)}"><td>${esc(q.m)} <span class="muted small">${esc(DS.aff[AFFMAP.get(q.m)][1])}</span></td><td class="n">${pct(q.x.re/q.x.n)}</td><td class="n">${q.x.cl}</td><td class="n">${rp(q.x.c)}${q.x.v?`<div class="small ok">${rp(q.x.v)} terverifikasi</div>`:''}</td></tr>`).join(''):'<tr><td colspan="4" class="muted">Belum ada affiliator di tipe ini.</td></tr>')+'</tbody>';
   $$('#ptab tr[data-a]').forEach(t=>t.onclick=()=>openAF(+t.dataset.a));
   renderAff();
 }
@@ -802,7 +802,7 @@ function renderAF(){
   $('#ringv').setAttribute('stroke-dashoffset',264-(tot?done/tot:0)*264);$('#ringt').textContent=done+'/'+tot;
   $('#hello').textContent="Assalamu'alaikum, "+af[1];
   $('#hellosub').textContent=`${af[0]}. ${fmt(X.byAff[a].length)} dari ${fmt(af[2])} nasabah Anda belum top up sebulan terakhir.`;
-  const all=affStats();const rank=Object.entries(all).sort((x,y)=>y[1].v-x[1].v).findIndex(e=>e[0]===af[0]);
+  const all=affStats();const rank=Object.entries(all).sort((x,y)=>y[1].c-x[1].c).findIndex(e=>e[0]===af[0]);
   $('#mystats').innerHTML=[[fmt(g.re),'Disapa'],[fmt(g.cl),'Closing'],[rank>=0?'#'+(rank+1):'–','Peringkat']].map(([v,l])=>`<div class="mini"><b>${v}</b><span>${l}</span></div>`).join('');
   $('#listtitle').textContent=tot?`Nasabah untuk disapa, kiriman ${dlabel(d)}`:'Nasabah untuk disapa';
   if(!tot){$('#mylist').innerHTML=`<div class="card small muted">Belum ada kiriman untuk Anda. Pipeline dikirim BMS lewat Teams setiap pagi. Untuk demo, kirim dari menu Ruang kendali di tampilan Product Owner.</div>`;return}
